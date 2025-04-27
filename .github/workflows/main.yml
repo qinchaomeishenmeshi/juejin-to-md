@@ -25,7 +25,7 @@ jobs:
 
       - name: 打包为单文件 exe
         run: |
-          pyinstaller --noconsole --onefile extract_juejin_article.py
+          pyinstaller --noconsole --onefile main.py
 
       - name: 上传 exe 到 Release
         uses: softprops/action-gh-release@v2
