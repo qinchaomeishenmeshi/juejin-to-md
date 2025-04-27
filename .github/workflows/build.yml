@@ -1,10 +1,10 @@
 name: Build Windows EXE
 
+# 当打 tag（v*）时触发
 on:
   push:
     tags:
-      - 'v*'   # 只有打tag时才触发，比如 v1.0.0
-
+      - 'v*'
 
 # 赋予 GITHUB_TOKEN 写仓库内容的权限，才能创建 Release
 permissions:
@@ -30,11 +30,16 @@ jobs:
 
       - name: 打包为单文件 exe
         run: |
-          pyinstaller --noconsole --onefile main.py
+          # 指定输出名称 extract_juejin_article.exe
+          pyinstaller --noconsole --onefile main.py --name extract_juejin_article
 
-      - name: 上传 exe 到 Release
+      - name: 列出 dist 目录确认文件
+        run: dir dist
+
+      - name: 发布到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/extract_juejin_article.exe
+          # 一定要和上一步产物名一致
+          files: dist\\extract_juejin_article.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
