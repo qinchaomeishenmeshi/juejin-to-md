@@ -1,3 +1,8 @@
+import os
+import shutil
+import sys
+import tempfile
+
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 
@@ -7,6 +12,90 @@ try:
     from tkinter import filedialog, messagebox
 except ImportError:
     tk = None
+
+# 当前程序版本号，发布新版本时改这里
+CURRENT_VERSION = "v1.0.5"
+
+# 你的 GitHub 仓库信息
+GITHUB_OWNER = "qinchaomeishenmeshi"
+GITHUB_REPO = "juejin-to-md"
+
+
+def get_latest_release():
+    """
+    从 GitHub API 获取最新 release 版本和下载地址
+    """
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        latest_version = data['tag_name']
+        # 找到第一个 .exe 资源
+        assets = data.get('assets', [])
+        exe_url = None
+        for asset in assets:
+            if asset['name'].endswith('.exe'):
+                exe_url = asset['browser_download_url']
+                break
+        return latest_version, exe_url
+    except Exception as e:
+        print(f"检查更新失败: {e}")
+        return None, None
+
+
+def download_new_version(download_url, save_path):
+    """
+    下载新的 exe 文件到 save_path
+    """
+    print(f"正在下载新版本...")
+    with requests.get(download_url, stream=True) as r:
+        r.raise_for_status()
+        with open(save_path, 'wb') as f:
+            shutil.copyfileobj(r.raw, f)
+    print("下载完成")
+
+
+def replace_and_restart(new_exe_path):
+    """
+    替换当前 exe 并重启
+    """
+    current_exe = sys.executable
+    print(f"准备替换 {current_exe}")
+
+    # 创建一个批处理文件，用来等待当前进程退出后再替换（Windows 特有）
+    bat_content = f"""@echo off
+ping 127.0.0.1 -n 3 > nul
+move /Y "{new_exe_path}" "{current_exe}"
+start "" "{current_exe}"
+exit
+"""
+    bat_path = os.path.join(tempfile.gettempdir(), "update.bat")
+    with open(bat_path, "w") as f:
+        f.write(bat_content)
+
+    print(f"执行更新脚本 {bat_path}")
+    os.startfile(bat_path)
+    sys.exit(0)
+
+
+def check_update():
+    """
+    检查更新并处理
+    """
+    print(f"当前版本: {CURRENT_VERSION}，检查是否有新版本...")
+    latest_version, download_url = get_latest_release()
+    if not latest_version or not download_url:
+        print("无法获取最新版本信息，跳过更新。")
+        return
+    if latest_version != CURRENT_VERSION:
+        print(f"发现新版本 {latest_version}，准备更新！")
+        temp_dir = tempfile.mkdtemp()
+        new_exe_path = os.path.join(temp_dir, "new_version.exe")
+        download_new_version(download_url, new_exe_path)
+        replace_and_restart(new_exe_path)
+    else:
+        print("当前已是最新版本。")
 
 
 def fetch_article_html(url, headers):
@@ -141,5 +230,6 @@ def main_gui():
 
 
 if __name__ == '__main__':
+    check_update()  # 程序一启动就检查
     # 默认启动 GUI 模式
     main_gui()
